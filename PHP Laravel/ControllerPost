@@ -1,0 +1,155 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Category;
+use App\Models\Comment;
+use App\Models\Follow;
+use App\Models\Hijra_Path;
+use App\Models\User;
+use http\Exception;
+use Illuminate\Http\Request;
+use App\Models\Post;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Session;
+
+class PostController extends Controller
+{
+
+    // User's conduct
+    public function index()
+    {
+
+        $posts = Post::where('status', '=', 1)->limit(10)->get();
+        $lastPosts = Post::latest()->limit(5);
+        $userFollow = Follow::where('user_id_leader', '=', auth()->user()->id)->latest()->limit(1)->get();
+        $savedPost = User::findOrFail(auth()->user()->id)->userSavePost()->limit(4)->get();
+        $savedPostMoreThree = User::findOrFail(auth()->user()->id)->userSavePost()->limit(4)->get();
+        $Category = Category::all();
+        $HijraPathQuery=DB::table('hijra__paths')->take(5)->get();
+        return view('users.index', ['posts' => $posts,
+            'lastPosts' => $lastPosts,
+            'userFollows' => $userFollow,
+            'savedPosts' => $savedPost,
+            'savedPostMoreThree' => $savedPostMoreThree,
+            'Categories' => $Category,
+            'Hijras'=>$HijraPathQuery,]);
+    }
+
+    public function index2()
+    {
+        $posts = Post::where('status', '=', 1)->limit(10)->get();
+        $lastPosts = Post::latest()->limit(5)->get();
+        $userFollow = Follow::where('user_id_leader', '=', auth()->user()->id)->latest()->limit(1)->get();
+        $savedPost = User::findOrFail(auth()->user()->id)->userSavePost()->limit(4)->get();
+        $savedPostMoreThree = User::findOrFail(auth()->user()->id)->userSavePost()->limit(4)->get();
+        $Category = Category::all();
+        $HijraPathQuery=DB::table('hijra__paths')->take(5)->get();
+        return view('users.index2', ['posts' => $posts,
+            'lastPosts' => $lastPosts,
+            'userFollows' => $userFollow,
+            'savedPosts' => $savedPost,
+            'savedPostMoreThree' => $savedPostMoreThree,
+            'Categories' => $Category,
+            'Hijras'=>$HijraPathQuery,]);
+    }
+
+    public function PreliminaryIndex()
+    {
+
+
+        return view();
+    }
+
+
+    /*------------------Show the specific post----------------------------------*/
+    public function show($id)
+    {
+
+        $posts = Post::findOrFail($id);
+        $PostComment = Post::findOrFail($id)->comment;
+
+
+        return view('users.posts.showPost', ['posts' => $posts, 'CommentRelatedToComment' => $PostComment]);
+    }
+
+    /*------------------Show the specific post----------------------------------*/
+
+    public function create()
+    {
+        $categories = Category::all();
+        return view('users.posts.index', ['category' => $categories,]);
+    }
+
+
+    /*-----------------------------------------------------------------*/
+    public function store(Request $request)
+    {
+        $inputs = request()->validate([
+            'category_id' => 'required',
+            'title' => 'required|min:8|max:100',
+            'post_images' => 'mimes:jpeg,jpg,png,gif',
+            // FIXME ADD COORDS
+            'coords' => 'nullable',
+            'body' => 'required',
+
+        ]);
+
+        if (request('post_images')) {
+            $inputs['post_images'] = request('post_images')->store('images');
+        }
+        $request->input('post_images');
+        // in order to create post for user who login
+        try {
+            auth()->user()->posts()->create($inputs);
+            session::flash('success', 'تمت نشر المنشور  بنجاح ' . $inputs['title']);
+            return back();
+        } catch (\Exception $e) {
+            session::flash('error', 'لم نتمكن من نشر المنشور ' . $inputs['title']);
+            return back();
+        }
+
+    }
+
+    /*-----------------------------------------------------------------*/
+    #todo user who has admin role will start his controller form here
+    public function superPostindex()
+    {
+
+        $posts = Post::all();
+        $requests_dec = Post::where('status', 0)->get();
+        return view('admin.posts', ['posts_all' => $posts, 'requests_dec' => $requests_dec])->with(compact('posts'));
+    }
+
+    #todo to change status from a post, and make decision about it.
+    public function changeStatus(Post $post)
+    {
+
+        $post_id = intval($post->id);
+        $post_title = $post->title;
+        #todo if you have any validate you must put the variable in the query..
+        $inputs = request()->validate([
+            'status' => 'nullable',
+        ]);
+
+        $number_update = intval($inputs['status']);
+        if ($number_update === 0) {
+            #todo I was wrong because I didn't pass the $number_update
+            $post->where('id', '=', $post_id)->update(['status' => $number_update]);
+            session::flash('UpdateStatusmessage', 'تم تغيير الحالة المنشور الي مرفوض' . ' : ' . $post_title);
+            return back();
+        }
+        if ($number_update === 1) {
+            #todo I was wrong because I didn't pass the $number_update
+            $post->where('id', '=', $post_id)->update(['status' => $number_update]);
+            session::flash('UpdateStatusmessage', 'تم تغيير حالة المنشور الى مقبول' . ' : ' . $post_title);
+            return back();
+        }
+
+    }
+
+    /*-----------------------------------------------------------------*/
+#todo delete the post in order to change the content
+
+
+}
